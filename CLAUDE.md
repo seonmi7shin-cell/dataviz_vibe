@@ -96,7 +96,7 @@ streamlit run scripts/대시보드.py
 세 가지를 한 번에 수행하고, 따로 「올려 줘」라고 다시 말하지 않아도 됩니다.
 
 - 커밋 메시지는 무엇을 만들었는지 한국어 한 줄
-- output 폴더는 올리지 않습니다 (.gitignore)
+- output 폴더도 커밋 대상입니다 (더 이상 .gitignore 제외 아님)
 
 저장소 주소는 여기 적지 않습니다. `git remote add origin` 을 한 번 해 두면
 git 이 기억하므로 `git push` 만으로 올라갑니다.

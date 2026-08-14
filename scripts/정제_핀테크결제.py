@@ -2,6 +2,7 @@
 # data/핀테크_정제완료.csv 로 저장하는 스크립트.
 # 순서를 바꾸면 남는 행 수가 달라지므로 CLAUDE.md에 정해둔 순서를 그대로 따른다:
 #   1) 범주 컬럼 결측 채우기  2) 거래일시·거래금액 결측 행 삭제  3) 완전 중복 제거
+#   4) 음수 거래금액 제거 (이상치 처리 지시에 따라 추가된 단계, 반드시 3단계 이후)
 
 import os
 import pandas as pd
@@ -37,6 +38,13 @@ print(f"2단계 완료 (거래일시·거래금액 결측 행 삭제): {step2_be
 step3_before = len(df)
 df = df.drop_duplicates(keep="first")
 print(f"3단계 완료 (완전 중복 제거): {step3_before}행 -> {len(df)}행 ({step3_before - len(df)}행 삭제)")
+
+# 4단계: 음수 거래금액 제거
+# 환불·오류로 보이는 음수 거래가 섞여 있으면 합계·평균이 실제보다 낮게 나와 모든 집계·그래프가
+# 왜곡된다. 이상치 처리는 원래 별도 지시가 있을 때만 하는데, 이번에 지시가 있어 추가한다.
+step4_before = len(df)
+df = df[df["거래금액"] >= 0]
+print(f"4단계 완료 (음수 거래금액 제거): {step4_before}행 -> {len(df)}행 ({step4_before - len(df)}행 삭제)")
 
 os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
 df.to_csv(OUTPUT_PATH, index=False, encoding="utf-8-sig")

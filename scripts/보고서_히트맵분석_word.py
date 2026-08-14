@@ -18,7 +18,7 @@ section.right_margin = Cm(1.8)
 
 title = doc.add_heading("지역×업종 거래금액 히트맵 분석 보고서", level=1)
 title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-doc.add_paragraph("데이터: data/핀테크_정제완료.csv (정제 완료, 11,738건)")
+doc.add_paragraph("데이터: data/핀테크_정제완료.csv (정제 완료, 음수 거래금액 제외 반영, 11,713건)")
 
 doc.add_picture(os.path.join("output", "charts", "지역업종_거래금액_히트맵.png"), width=Cm(16))
 
@@ -48,15 +48,15 @@ table.style = "Light Grid Accent 1"
 for i, name in enumerate(["순위", "지역", "합계(원)"]):
     table.rows[0].cells[i].text = name
 for row in [
-    ["1", "서울", "160,603,512"],
-    ["2", "경기", "137,057,485"],
-    ["3", "부산", "37,150,102"],
+    ["1", "서울", "160,777,701"],
+    ["2", "경기", "137,759,789"],
+    ["3", "부산", "37,164,265"],
     ["17", "세종", "5,510,049"],
 ]:
     cells = table.add_row().cells
     for i, v in enumerate(row):
         cells[i].text = v
-doc.add_paragraph("서울·경기 두 지역이 나머지 15개 지역을 합친 것과 맞먹는 규모다 (전체의 약 55%).")
+doc.add_paragraph("서울·경기 두 지역이 나머지 15개 지역을 합친 것과 맞먹는 규모다 (전체의 약 55%). 음수 거래금액 제외 반영.")
 
 doc.add_heading("4. 업종별 총합 (상위 3 · 하위 1)", level=2)
 table = doc.add_table(rows=1, cols=3)
@@ -64,10 +64,10 @@ table.style = "Light Grid Accent 1"
 for i, name in enumerate(["순위", "업종", "합계(원)"]):
     table.rows[0].cells[i].text = name
 for row in [
-    ["1", "여행", "120,089,719"],
-    ["2", "쇼핑", "117,001,680"],
+    ["1", "여행", "121,061,379"],
+    ["2", "쇼핑", "117,264,358"],
     ["3", "교육", "98,439,821"],
-    ["9", "교통", "5,013,118"],
+    ["9", "교통", "5,020,766"],
 ]:
     cells = table.add_row().cells
     for i, v in enumerate(row):
@@ -79,8 +79,8 @@ table.style = "Light Grid Accent 1"
 for i, name in enumerate(["업종", "합계(원)"]):
     table.rows[0].cells[i].text = name
 for row in [
-    ["여행", "6,264,289"], ["교육", "3,900,570"], ["쇼핑", "3,597,677"],
-    ["공과금", "2,796,563"], ["문화/여가", "2,041,567"], ["식음료", "1,811,551"],
+    ["여행", "6,264,289"], ["교육", "3,900,570"], ["쇼핑", "3,635,682"],
+    ["공과금", "2,796,563"], ["문화/여가", "2,041,567"], ["식음료", "1,817,423"],
     ["의료", "1,301,924"], ["기타", "683,754"], ["교통", "231,158"],
 ]:
     cells = table.add_row().cells

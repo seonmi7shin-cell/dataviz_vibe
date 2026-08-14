@@ -12,6 +12,10 @@ plt.rcParams["axes.unicode_minus"] = False      # 마이너스 기호 깨짐 방
 
 df = pd.read_csv(os.path.join("data", "01_핀테크결제_dirty.csv"), encoding="utf-8-sig")
 
+# 환불·오류로 보이는 음수 거래금액이 섞여 있으면 합계가 실제보다 낮게 나와 순위·크기가
+# 왜곡되므로 집계 전에 제외한다 (이상치 처리 지시에 따라 추가)
+df = df[df["거래금액"] >= 0]
+
 # 업종별 합계를 내고 오름차순으로 정렬. barh 는 위에서부터 그리므로
 # 오름차순 정렬을 해야 화면에서 위쪽에 가장 큰 값이 온다 (큰 순서로 보이게 하는 핵심)
 by_category = df.groupby("가맹점업종")["거래금액"].sum().sort_values(ascending=True)

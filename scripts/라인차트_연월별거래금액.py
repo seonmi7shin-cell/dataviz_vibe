@@ -14,6 +14,10 @@ df = pd.read_csv(os.path.join("data", "01_핀테크결제_dirty.csv"), encoding=
 
 # 거래일시가 없는 행은 월별로 묶을 수 없으므로 이 그래프에서만 임시로 제외 (원본 파일은 그대로 둠)
 df = df.dropna(subset=["거래일시"])
+
+# 환불·오류로 보이는 음수 거래금액이 섞여 있으면 월별 합계가 실제보다 낮게 나와 추이가
+# 왜곡되므로 집계 전에 제외한다 (이상치 처리 지시에 따라 추가)
+df = df[df["거래금액"] >= 0]
 df["거래일시"] = pd.to_datetime(df["거래일시"], format="mixed")
 df["연월"] = df["거래일시"].dt.to_period("M").astype(str)
 

@@ -20,9 +20,12 @@ output_dir = os.path.join("output", "charts")
 os.makedirs(output_dir, exist_ok=True)
 
 
-def draw_horizontal_bar(column, title, filename):
+def draw_horizontal_bar(column, title, filename, missing_label=None):
+    # groupby 는 결측을 기본적으로 조용히 빼버려서 전체 합계가 안 맞게 되므로, 결측이 있는
+    # 컬럼은 알수없음/미상으로 채워 넣어야 한다 (CLAUDE.md: 결측이 있어도 컬럼을 분석에서 빼지 않음)
+    series = df[column].fillna(missing_label) if missing_label else df[column]
     # 오름차순으로 정렬해야 barh 에서 위쪽에 가장 큰 값이 오게 된다 (큰 순서로 보이게 하는 핵심)
-    by_group = df.groupby(column)["거래금액"].sum().sort_values(ascending=True)
+    by_group = df.groupby(series)["거래금액"].sum().sort_values(ascending=True)
 
     print(f"{column}별 거래금액 합계 (큰 순서):")
     print(by_group.sort_values(ascending=False))
@@ -55,6 +58,6 @@ def draw_horizontal_bar(column, title, filename):
     print()
 
 
-draw_horizontal_bar("지역", "지역별 거래금액 합계 (큰 순서)", "지역별_거래금액_가로막대.png")
+draw_horizontal_bar("지역", "지역별 거래금액 합계 (큰 순서)", "지역별_거래금액_가로막대.png", missing_label="알수없음")
 draw_horizontal_bar("결제수단", "결제수단별 거래금액 합계 (큰 순서)", "결제수단별_거래금액_가로막대.png")
-draw_horizontal_bar("연령대", "연령대별 거래금액 합계 (큰 순서)", "연령대별_거래금액_가로막대.png")
+draw_horizontal_bar("연령대", "연령대별 거래금액 합계 (큰 순서)", "연령대별_거래금액_가로막대.png", missing_label="미상")

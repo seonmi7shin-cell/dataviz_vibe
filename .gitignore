@@ -1,3 +1,4 @@
 output/
 dataviz-vibe-env/
 ~$*
+.tmp/

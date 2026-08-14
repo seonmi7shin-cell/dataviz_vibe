@@ -82,6 +82,11 @@ streamlit run scripts/대시보드.py
 - 차트는 output/charts 폴더에 PNG
 - 코드는 scripts 폴더
 
+### 차트는 저장과 동시에 창으로도 띄울 것
+차트를 그리면 `output/charts` 에 PNG로 저장하고, **같은 실행에서 화면에 창으로도 띄운다.**
+`plt.savefig()` 로 저장한 뒤 이어서 `plt.show()` 를 호출한다 (savefig 가 먼저, show 는 그 다음 —
+순서를 바꾸면 show 이후 캔버스가 초기화되어 빈 파일이 저장될 수 있다).
+
 ## 이력 관리
 
 **커밋은 사람이 시킬 때만 합니다.** 코드를 만들거나 고쳤다고 알아서 커밋하지 마십시오.

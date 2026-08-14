@@ -23,7 +23,8 @@ print("연월별 거래금액 합계:")
 print(by_month)
 
 fig, ax = plt.subplots(figsize=(10, 6))
-ax.plot(by_month.index, by_month.values, marker="o", color="#4C72B0", linewidth=2)
+# dataviz 스킬의 검증된 팔레트에서 단일 계열(하나의 측정값 추이)에 쓰는 기본 색인 blue 사용
+ax.plot(by_month.index, by_month.values, marker="o", color="#2a78d6", linewidth=2)
 ax.set_title("연월별 거래금액 합계 추이")
 ax.set_xlabel("연월")
 ax.set_ylabel("거래금액 합계 (원)")
@@ -50,3 +51,7 @@ os.makedirs(output_dir, exist_ok=True)
 output_path = os.path.join(output_dir, "연월별_거래금액_라인차트.png")
 plt.savefig(output_path, dpi=150)
 print(f"저장 경로: {output_path}")
+
+# savefig 로 먼저 저장한 뒤에 show 를 호출해야 함 (순서를 바꾸면 show 이후 캔버스가
+# 초기화되어 빈 파일이 저장될 수 있음)
+plt.show()

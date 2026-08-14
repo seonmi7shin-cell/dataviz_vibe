@@ -1,3 +1,4 @@
 dataviz-vibe-env/
 ~$*
 .tmp/
+.playwright-mcp/

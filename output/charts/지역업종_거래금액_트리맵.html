@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>지역×업종 거래금액 트리맵</title>
+<style>
+  body {
+    background: #fcfcfb;
+    color: #0b0b0b;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 32px;
+  }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  p.note { font-size: 12px; color: #52514e; margin: 0 0 20px; }
+  #treemap {
+    position: relative;
+    width: 960px;
+    height: 600px;
+    border: 1px solid #c3c2b7;
+  }
+  .region-border {
+    position: absolute;
+    border: 2px solid #fcfcfb;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+  .leaf {
+    position: absolute;
+    box-sizing: border-box;
+    border: 1px solid #fcfcfb;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .leaf-label {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    right: 4px;
+    font-size: 10px;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .region-label {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0b0b0b;
+    background: rgba(252,252,251,0.85);
+    padding: 1px 5px;
+    border-radius: 3px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  #tooltip {
+    position: fixed;
+    background: #0b0b0b;
+    color: #ffffff;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+    white-space: nowrap;
+    z-index: 10;
+  }
+  #legend {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    font-size: 12px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 2px; }
+</style>
+</head>
+<body>
+  <h1>지역×업종 거래금액 합계 트리맵</h1>
+  <p class="note">큰 사각형 = 지역(합계 순), 그 안의 작은 사각형 = 업종(색으로 구분). 사각형에 마우스를 올리면 값이 뜹니다.</p>
+  <div id="treemap"></div>
+  <div id="legend"></div>
+  <div id="tooltip"></div>
+
+<script>
+// data/핀테크_정제완료.csv 에서 지역별 · 지역×업종별 거래금액 합계를 미리 집계해 옮겨온 값
+const regionTotals = [
+  ["서울", 160777701], ["경기", 137759789], ["부산", 37164265], ["인천", 33547130],
+  ["대구", 26044841], ["알수없음", 22672930], ["경남", 22464413], ["경북", 16465803],
+  ["충남", 15814603], ["광주", 15306994], ["대전", 14702985], ["전북", 13745087],
+  ["충북", 13127979], ["울산", 10776353], ["강원", 10741782], ["전남", 9980903],
+  ["제주", 9621552], ["세종", 5510049],
+];
+
+const detail = {
+  "서울": {"식음료":13009638,"교통":1363980,"여행":39116569,"기타":6046407,"쇼핑":32766839,"교육":27470363,"공과금":19179145,"문화/여가":12145216,"의료":9679544},
+  "경기": {"식음료":10859917,"교통":1361173,"여행":27829628,"기타":5601471,"쇼핑":28969045,"교육":24912780,"공과금":18101182,"문화/여가":9753291,"의료":10371302},
+  "부산": {"식음료":3294986,"교통":317752,"여행":7348669,"기타":1135255,"쇼핑":7770489,"교육":8295692,"공과금":3991326,"문화/여가":2845127,"의료":2164969},
+  "인천": {"식음료":2834191,"교통":365149,"여행":7066984,"기타":1363647,"쇼핑":6197989,"교육":6869931,"공과금":3609840,"문화/여가":2355698,"의료":2883701},
+  "대구": {"식음료":1835102,"교통":212885,"여행":3801147,"기타":977656,"쇼핑":6743325,"교육":4695688,"공과금":4094853,"문화/여가":1714628,"의료":1969557},
+  "알수없음": {"식음료":1817423,"교통":231158,"여행":6264289,"기타":683754,"쇼핑":3635682,"교육":3900570,"공과금":2796563,"문화/여가":2041567,"의료":1301924},
+  "경남": {"식음료":2015802,"교통":234985,"여행":5453362,"기타":788145,"쇼핑":4590554,"교육":3552424,"공과금":2772492,"문화/여가":1263430,"의료":1793219},
+  "경북": {"식음료":1269931,"교통":106762,"여행":3084482,"기타":405469,"쇼핑":4018587,"교육":2162722,"공과금":2743585,"문화/여가":1280462,"의료":1393803},
+  "충남": {"식음료":1294183,"교통":117351,"여행":3548613,"기타":443044,"쇼핑":3228387,"교육":2679317,"공과금":1781856,"문화/여가":1070902,"의료":1650950},
+  "광주": {"식음료":1528755,"교통":176868,"여행":4717113,"기타":504219,"쇼핑":3458116,"교육":1468535,"공과금":1399974,"문화/여가":874934,"의료":1178480},
+  "대전": {"식음료":1590974,"교통":140152,"여행":2965437,"기타":627634,"쇼핑":2763541,"교육":2240448,"공과금":2064821,"문화/여가":1261743,"의료":1048235},
+  "전북": {"식음료":1219789,"교통":119593,"여행":4379736,"기타":423989,"쇼핑":2130712,"교육":2372509,"공과금":1887444,"문화/여가":955342,"의료":255973},
+  "충북": {"식음료":1111184,"교통":77155,"여행":2573919,"기타":479234,"쇼핑":2525185,"교육":3812404,"공과금":1038282,"문화/여가":754840,"의료":755776},
+  "울산": {"식음료":1116489,"교통":107584,"여행":2731338,"기타":310655,"쇼핑":2753368,"교육":1553057,"공과금":1100774,"문화/여가":429726,"의료":673362},
+  "강원": {"식음료":873536,"교통":112748,"여행":2541810,"기타":179208,"쇼핑":2293985,"교육":2079345,"공과금":1413537,"문화/여가":651743,"의료":595870},
+  "전남": {"식음료":851143,"교통":85295,"여행":1303522,"기타":349736,"쇼핑":2778750,"교육":1570438,"공과금":1649562,"문화/여가":487937,"의료":904520},
+  "제주": {"식음료":1061083,"교통":69900,"여행":1538076,"기타":319843,"쇼핑":2529609,"교육":1690627,"공과금":854186,"문화/여가":686813,"의료":871415},
+  "세종": {"식음료":507471,"교통":51434,"여행":1060974,"기타":253979,"쇼핑":1745877,"교육":1013541,"공과금":161805,"문화/여가":504406,"의료":210562},
+};
+
+// 업종은 항상 같은 색을 써야 지역이 달라도 같은 업종을 눈으로 바로 비교할 수 있다.
+// dataviz 팔레트의 카테고리 슬롯 순서(블루~레드)를 그대로 쓰고, 9번째(교통)만 팔레트에
+// 없는 색이라 눈에 띄는 회갈색을 추가로 지정했다 (직접 라벨을 항상 붙여 색만으로 구분하지 않게 함).
+const categoryColors = {
+  "여행": "#2a78d6", "쇼핑": "#eb6834", "교육": "#1baf7a", "공과금": "#eda100",
+  "식음료": "#e87ba4", "문화/여가": "#008300", "의료": "#4a3aa7", "기타": "#e34948",
+  "교통": "#767671",
+};
+
+const W = 960, H = 600;
+
+// 표준 squarified treemap 알고리즘: 정사각형에 가까운 비율이 되도록 한 줄씩 채워나간다.
+// 비율이 극단적으로 길쭉한 사각형이 나오면 값 차이를 눈으로 비교하기 어려워지므로 이 방식을 쓴다.
+function squarify(items, x, y, w, h) {
+  const rects = [];
+  const total = items.reduce((s, i) => s + i.value, 0);
+  if (total <= 0) return rects;
+  const scale = (w * h) / total;
+  let remaining = items.map(i => ({ ...i, area: i.value * scale }));
+
+  function worst(row, length) {
+    const sum = row.reduce((s, r) => s + r.area, 0);
+    const max = Math.max(...row.map(r => r.area));
+    const min = Math.min(...row.map(r => r.area));
+    return Math.max((length * length * max) / (sum * sum), (sum * sum) / (length * length * min));
+  }
+
+  function layoutRow(row, curX, curY, curW, curH) {
+    const sum = row.reduce((s, r) => s + r.area, 0);
+    if (curW >= curH) {
+      const rowW = sum / curH;
+      let ry = curY;
+      row.forEach(r => {
+        const rh = r.area / rowW;
+        rects.push({ ...r, x: curX, y: ry, w: rowW, h: rh });
+        ry += rh;
+      });
+      return { x: curX + rowW, y: curY, w: curW - rowW, h: curH };
+    } else {
+      const rowH = sum / curW;
+      let rx = curX;
+      row.forEach(r => {
+        const rw = r.area / rowH;
+        rects.push({ ...r, x: rx, y: curY, w: rw, h: rowH });
+        rx += rw;
+      });
+      return { x: curX, y: curY + rowH, w: curW, h: curH - rowH };
+    }
+  }
+
+  let box = { x, y, w, h };
+  let row = [];
+  while (remaining.length) {
+    const length = Math.min(box.w, box.h);
+    const next = remaining[0];
+    const candidate = row.concat(next);
+    if (row.length === 0 || worst(row, length) >= worst(candidate, length)) {
+      row = candidate;
+      remaining = remaining.slice(1);
+    } else {
+      box = layoutRow(row, box.x, box.y, box.w, box.h);
+      row = [];
+    }
+  }
+  if (row.length) layoutRow(row, box.x, box.y, box.w, box.h);
+  return rects;
+}
+
+const treemapEl = document.getElementById("treemap");
+const tooltip = document.getElementById("tooltip");
+
+const regionItems = regionTotals.map(([name, value]) => ({ name, value }));
+const regionRects = squarify(regionItems, 0, 0, W, H);
+
+regionRects.forEach(region => {
+  // 지역 사각형이 너무 작으면(세종처럼) 라벨을 넣을 자리가 없어 생략한다
+  if (region.w > 40 && region.h > 16) {
+    const regionLabel = document.createElement("div");
+    regionLabel.className = "region-label";
+    regionLabel.style.left = region.x + "px";
+    regionLabel.style.top = region.y + "px";
+    regionLabel.textContent = region.name;
+    treemapEl.appendChild(regionLabel);
+  }
+
+  const cats = detail[region.name];
+  const catItems = Object.entries(cats)
+    .filter(([, v]) => v > 0)
+    .map(([name, value]) => ({ name, value }));
+  const catRects = squarify(catItems, region.x, region.y, region.w, region.h);
+
+  catRects.forEach(cell => {
+    const leaf = document.createElement("div");
+    leaf.className = "leaf";
+    leaf.style.left = cell.x + "px";
+    leaf.style.top = cell.y + "px";
+    leaf.style.width = Math.max(cell.w, 0) + "px";
+    leaf.style.height = Math.max(cell.h, 0) + "px";
+    leaf.style.background = categoryColors[cell.name];
+
+    if (cell.w > 36 && cell.h > 14) {
+      const label = document.createElement("div");
+      label.className = "leaf-label";
+      label.textContent = cell.name;
+      leaf.appendChild(label);
+    }
+
+    leaf.addEventListener("mousemove", (e) => {
+      tooltip.style.opacity = "1";
+      tooltip.textContent = `${region.name} · ${cell.name}: ${cell.value.toLocaleString()}원`;
+      tooltip.style.left = (e.clientX + 14) + "px";
+      tooltip.style.top = (e.clientY - 10) + "px";
+    });
+    leaf.addEventListener("mouseleave", () => {
+      tooltip.style.opacity = "0";
+    });
+
+    treemapEl.appendChild(leaf);
+  });
+
+  // 지역 경계를 굵은 흰 테두리로 한 번 더 덧그려서 지역 구분이 업종 색보다 눈에 잘 띄게 한다
+  const border = document.createElement("div");
+  border.className = "region-border";
+  border.style.left = region.x + "px";
+  border.style.top = region.y + "px";
+  border.style.width = region.w + "px";
+  border.style.height = region.h + "px";
+  treemapEl.appendChild(border);
+});
+
+const legend = document.getElementById("legend");
+Object.entries(categoryColors).forEach(([name, color]) => {
+  const item = document.createElement("div");
+  item.className = "legend-item";
+  item.innerHTML = `<span class="legend-swatch" style="background:${color}"></span>${name}`;
+  legend.appendChild(item);
+});
+</script>
+</body>
+</html>

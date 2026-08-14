@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>지역×업종 거래금액 원형 트리맵</title>
+<style>
+  body {
+    background: #fcfcfb;
+    color: #0b0b0b;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 32px;
+  }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  p.note { font-size: 12px; color: #52514e; margin: 0 0 20px; }
+  #pack {
+    position: relative;
+    width: 960px;
+    height: 720px;
+    border: 1px solid #c3c2b7;
+  }
+  .region-circle {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid #c3c2b7;
+    background: rgba(252,252,251,0.4);
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+  .region-label {
+    position: absolute;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0b0b0b;
+    background: rgba(252,252,251,0.9);
+    padding: 1px 5px;
+    border-radius: 3px;
+    pointer-events: none;
+    z-index: 5;
+    transform: translate(-50%, 0);
+  }
+  .leaf {
+    position: absolute;
+    border-radius: 50%;
+    box-sizing: border-box;
+    border: 1px solid #fcfcfb;
+    cursor: pointer;
+  }
+  .leaf-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    pointer-events: none;
+    text-align: center;
+    padding: 2px;
+    overflow: hidden;
+  }
+  #tooltip {
+    position: fixed;
+    background: #0b0b0b;
+    color: #ffffff;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+    white-space: nowrap;
+    z-index: 10;
+  }
+  #legend {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    font-size: 12px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 50%; }
+</style>
+</head>
+<body>
+  <h1>지역×업종 거래금액 합계 원형 트리맵 (circle packing)</h1>
+  <p class="note">큰 원 = 지역(합계 크기), 그 안의 작은 원 = 업종(색으로 구분, 트리맵과 같은 색). 원에 마우스를 올리면 값이 뜹니다.</p>
+  <div id="pack"></div>
+  <div id="legend"></div>
+  <div id="tooltip"></div>
+
+<script>
+// data/핀테크_정제완료.csv 에서 지역별 · 지역×업종별 거래금액 합계를 미리 집계해 옮겨온 값
+// (output/charts/지역업종_거래금액_트리맵.html 과 같은 데이터)
+const regionTotals = [
+  ["서울", 160777701], ["경기", 137759789], ["부산", 37164265], ["인천", 33547130],
+  ["대구", 26044841], ["알수없음", 22672930], ["경남", 22464413], ["경북", 16465803],
+  ["충남", 15814603], ["광주", 15306994], ["대전", 14702985], ["전북", 13745087],
+  ["충북", 13127979], ["울산", 10776353], ["강원", 10741782], ["전남", 9980903],
+  ["제주", 9621552], ["세종", 5510049],
+];
+
+const detail = {
+  "서울": {"식음료":13009638,"교통":1363980,"여행":39116569,"기타":6046407,"쇼핑":32766839,"교육":27470363,"공과금":19179145,"문화/여가":12145216,"의료":9679544},
+  "경기": {"식음료":10859917,"교통":1361173,"여행":27829628,"기타":5601471,"쇼핑":28969045,"교육":24912780,"공과금":18101182,"문화/여가":9753291,"의료":10371302},
+  "부산": {"식음료":3294986,"교통":317752,"여행":7348669,"기타":1135255,"쇼핑":7770489,"교육":8295692,"공과금":3991326,"문화/여가":2845127,"의료":2164969},
+  "인천": {"식음료":2834191,"교통":365149,"여행":7066984,"기타":1363647,"쇼핑":6197989,"교육":6869931,"공과금":3609840,"문화/여가":2355698,"의료":2883701},
+  "대구": {"식음료":1835102,"교통":212885,"여행":3801147,"기타":977656,"쇼핑":6743325,"교육":4695688,"공과금":4094853,"문화/여가":1714628,"의료":1969557},
+  "알수없음": {"식음료":1817423,"교통":231158,"여행":6264289,"기타":683754,"쇼핑":3635682,"교육":3900570,"공과금":2796563,"문화/여가":2041567,"의료":1301924},
+  "경남": {"식음료":2015802,"교통":234985,"여행":5453362,"기타":788145,"쇼핑":4590554,"교육":3552424,"공과금":2772492,"문화/여가":1263430,"의료":1793219},
+  "경북": {"식음료":1269931,"교통":106762,"여행":3084482,"기타":405469,"쇼핑":4018587,"교육":2162722,"공과금":2743585,"문화/여가":1280462,"의료":1393803},
+  "충남": {"식음료":1294183,"교통":117351,"여행":3548613,"기타":443044,"쇼핑":3228387,"교육":2679317,"공과금":1781856,"문화/여가":1070902,"의료":1650950},
+  "광주": {"식음료":1528755,"교통":176868,"여행":4717113,"기타":504219,"쇼핑":3458116,"교육":1468535,"공과금":1399974,"문화/여가":874934,"의료":1178480},
+  "대전": {"식음료":1590974,"교통":140152,"여행":2965437,"기타":627634,"쇼핑":2763541,"교육":2240448,"공과금":2064821,"문화/여가":1261743,"의료":1048235},
+  "전북": {"식음료":1219789,"교통":119593,"여행":4379736,"기타":423989,"쇼핑":2130712,"교육":2372509,"공과금":1887444,"문화/여가":955342,"의료":255973},
+  "충북": {"식음료":1111184,"교통":77155,"여행":2573919,"기타":479234,"쇼핑":2525185,"교육":3812404,"공과금":1038282,"문화/여가":754840,"의료":755776},
+  "울산": {"식음료":1116489,"교통":107584,"여행":2731338,"기타":310655,"쇼핑":2753368,"교육":1553057,"공과금":1100774,"문화/여가":429726,"의료":673362},
+  "강원": {"식음료":873536,"교통":112748,"여행":2541810,"기타":179208,"쇼핑":2293985,"교육":2079345,"공과금":1413537,"문화/여가":651743,"의료":595870},
+  "전남": {"식음료":851143,"교통":85295,"여행":1303522,"기타":349736,"쇼핑":2778750,"교육":1570438,"공과금":1649562,"문화/여가":487937,"의료":904520},
+  "제주": {"식음료":1061083,"교통":69900,"여행":1538076,"기타":319843,"쇼핑":2529609,"교육":1690627,"공과금":854186,"문화/여가":686813,"의료":871415},
+  "세종": {"식음료":507471,"교통":51434,"여행":1060974,"기타":253979,"쇼핑":1745877,"교육":1013541,"공과금":161805,"문화/여가":504406,"의료":210562},
+};
+
+const categoryColors = {
+  "여행": "#2a78d6", "쇼핑": "#eb6834", "교육": "#1baf7a", "공과금": "#eda100",
+  "식음료": "#e87ba4", "문화/여가": "#008300", "의료": "#4a3aa7", "기타": "#e34948",
+  "교통": "#767671",
+};
+
+const W = 960, H = 720;
+const cx0 = W / 2, cy0 = H / 2;
+
+// 트리맵의 사각형 대신 원으로 겹치지 않게 배치하는 게 목적이라, 정확한 기하 알고리즘보다는
+// "겹치면 서로 밀어내고, 중심으로는 살짝 당긴다"를 여러 번 반복하는 물리 시뮬레이션(force
+// simulation)으로 원형 패킹을 흉내낸다. 완벽하진 않지만 뭉치지 않고 고르게 퍼지는 정도면 충분하다.
+function packCircles(items, cx, cy, boundR, iterations) {
+  items.forEach(it => {
+    const angle = Math.random() * 2 * Math.PI;
+    const dist = Math.random() * boundR * 0.4;
+    it.x = cx + Math.cos(angle) * dist;
+    it.y = cy + Math.sin(angle) * dist;
+  });
+  for (let iter = 0; iter < iterations; iter++) {
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = items[i], b = items[j];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+        const minDist = a.r + b.r;
+        if (dist < minDist) {
+          const overlap = (minDist - dist) / 2;
+          const ux = dx / dist, uy = dy / dist;
+          a.x -= ux * overlap; a.y -= uy * overlap;
+          b.x += ux * overlap; b.y += uy * overlap;
+        }
+      }
+    }
+    items.forEach(it => {
+      it.x += (cx - it.x) * 0.02;
+      it.y += (cy - it.y) * 0.02;
+      if (boundR) {
+        const dx = it.x - cx, dy = it.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxDist = boundR - it.r;
+        if (maxDist > 0 && dist > maxDist) {
+          const ux = dx / dist, uy = dy / dist;
+          it.x = cx + ux * maxDist;
+          it.y = cy + uy * maxDist;
+        }
+      }
+    });
+  }
+  return items;
+}
+
+const packEl = document.getElementById("pack");
+const tooltip = document.getElementById("tooltip");
+
+// 원 면적이 값에 비례하도록(막대 길이 대신 면적으로 크기를 표현) 반지름을 sqrt(값)에 비례시킨다.
+// scale 은 "원들의 면적 합이 전체 캔버스의 대략 55% 정도"가 되도록 역산한 값이다.
+const totalRegionValue = regionTotals.reduce((s, [, v]) => s + v, 0);
+const outerBoundR = Math.min(W, H) / 2 - 10;
+const regionScale = Math.sqrt((0.55 * outerBoundR * outerBoundR) / totalRegionValue);
+
+const regionItems = regionTotals.map(([name, value]) => ({
+  name, value, r: Math.max(regionScale * Math.sqrt(value), 20),
+}));
+
+packCircles(regionItems, cx0, cy0, outerBoundR, 400);
+
+regionItems.forEach(region => {
+  const circle = document.createElement("div");
+  circle.className = "region-circle";
+  circle.style.left = (region.x - region.r) + "px";
+  circle.style.top = (region.y - region.r) + "px";
+  circle.style.width = region.r * 2 + "px";
+  circle.style.height = region.r * 2 + "px";
+  packEl.appendChild(circle);
+
+  if (region.r > 24) {
+    const label = document.createElement("div");
+    label.className = "region-label";
+    label.style.left = region.x + "px";
+    label.style.top = (region.y - region.r - 16) + "px";
+    label.textContent = region.name;
+    packEl.appendChild(label);
+  }
+
+  const cats = detail[region.name];
+  const catEntries = Object.entries(cats).filter(([, v]) => v > 0);
+  const catTotal = catEntries.reduce((s, [, v]) => s + v, 0);
+  const innerBoundR = region.r * 0.92;  // 부모 원 테두리가 살짝 보이게 여백을 둠
+  const catScale = Math.sqrt((0.55 * innerBoundR * innerBoundR) / catTotal);
+  const catItems = catEntries.map(([name, value]) => ({
+    name, value, r: Math.max(catScale * Math.sqrt(value), 4),
+  }));
+
+  packCircles(catItems, region.x, region.y, innerBoundR, 200);
+
+  catItems.forEach(cell => {
+    const leaf = document.createElement("div");
+    leaf.className = "leaf";
+    leaf.style.left = (cell.x - cell.r) + "px";
+    leaf.style.top = (cell.y - cell.r) + "px";
+    leaf.style.width = cell.r * 2 + "px";
+    leaf.style.height = cell.r * 2 + "px";
+    leaf.style.background = categoryColors[cell.name];
+
+    if (cell.r > 14) {
+      const label = document.createElement("div");
+      label.className = "leaf-label";
+      label.textContent = cell.name;
+      leaf.appendChild(label);
+    }
+
+    leaf.addEventListener("mousemove", (e) => {
+      tooltip.style.opacity = "1";
+      tooltip.textContent = `${region.name} · ${cell.name}: ${cell.value.toLocaleString()}원`;
+      tooltip.style.left = (e.clientX + 14) + "px";
+      tooltip.style.top = (e.clientY - 10) + "px";
+    });
+    leaf.addEventListener("mouseleave", () => {
+      tooltip.style.opacity = "0";
+    });
+
+    packEl.appendChild(leaf);
+  });
+});
+
+const legend = document.getElementById("legend");
+Object.entries(categoryColors).forEach(([name, color]) => {
+  const item = document.createElement("div");
+  item.className = "legend-item";
+  item.innerHTML = `<span class="legend-swatch" style="background:${color}"></span>${name}`;
+  legend.appendChild(item);
+});
+</script>
+</body>
+</html>

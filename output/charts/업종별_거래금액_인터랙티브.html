@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>가맹점업종별 거래금액 합계</title>
+<style>
+  /* dataviz 스킬의 검증된 팔레트 값을 그대로 씀 (surfaces·ink·단일 시퀀셜 블루) */
+  body {
+    background: #fcfcfb;
+    color: #0b0b0b;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 32px;
+  }
+  h1 { font-size: 18px; margin: 0 0 20px; }
+  .chart-wrap { position: relative; width: 720px; }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    height: 34px;
+    margin-bottom: 6px;
+  }
+  .bar-label {
+    width: 90px;
+    font-size: 13px;
+    color: #52514e;
+    text-align: right;
+    padding-right: 10px;
+    flex-shrink: 0;
+  }
+  .bar-track {
+    flex: 1;
+    background: #f9f9f7;
+    border-radius: 3px;
+    position: relative;
+    height: 24px;
+  }
+  .bar-fill {
+    height: 100%;
+    background: #2a78d6;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .bar-fill:hover { background: #256abf; }
+  /* 히트 타겟(hover 감지 범위)을 막대보다 살짝 넉넉하게 잡아야 마우스가 정확히 막대 위에
+     있지 않아도 툴팁이 반응해서 사용성이 좋다 */
+  .bar-track::before {
+    content: "";
+    position: absolute;
+    top: -5px; bottom: -5px; left: 0; right: 0;
+  }
+  #tooltip {
+    position: fixed;
+    background: #0b0b0b;
+    color: #ffffff;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+    white-space: nowrap;
+    z-index: 10;
+  }
+  h2 { font-size: 16px; margin: 40px 0 20px; }
+  #line-chart circle { cursor: pointer; }
+  #line-chart .hit-target { fill: transparent; }
+  #line-chart .crosshair {
+    stroke: #c3c2b7;
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    opacity: 0;
+  }
+</style>
+</head>
+<body>
+  <h1>가맹점업종별 거래금액 합계 (data/핀테크_정제완료.csv, 11,713건)</h1>
+  <div class="chart-wrap" id="chart"></div>
+
+  <h2>월별 거래금액 합계 추이</h2>
+  <div class="chart-wrap" id="line-chart-wrap"></div>
+
+  <div id="tooltip"></div>
+
+<script>
+// 큰 값 순서로 정렬해야 위에서부터 큰 막대가 보인다
+const data = [
+  ["여행", 127325668],
+  ["쇼핑", 120900040],
+  ["교육", 102340391],
+  ["공과금", 70641227],
+  ["식음료", 48091597],
+  ["문화/여가", 41077805],
+  ["의료", 39703162],
+  ["기타", 20893345],
+  ["교통", 5251924],
+];
+
+const maxValue = Math.max(...data.map(([, v]) => v));
+const chart = document.getElementById("chart");
+const tooltip = document.getElementById("tooltip");
+
+data.forEach(([name, value]) => {
+  const row = document.createElement("div");
+  row.className = "bar-row";
+
+  const label = document.createElement("div");
+  label.className = "bar-label";
+  label.textContent = name;
+
+  const track = document.createElement("div");
+  track.className = "bar-track";
+
+  const fill = document.createElement("div");
+  fill.className = "bar-fill";
+  fill.style.width = (value / maxValue * 100) + "%";
+
+  track.addEventListener("mousemove", (e) => {
+    tooltip.style.opacity = "1";
+    tooltip.textContent = `${name}: ${value.toLocaleString()}원`;
+    tooltip.style.left = (e.clientX + 14) + "px";
+    tooltip.style.top = (e.clientY - 10) + "px";
+  });
+  track.addEventListener("mouseleave", () => {
+    tooltip.style.opacity = "0";
+  });
+
+  track.appendChild(fill);
+  row.appendChild(label);
+  row.appendChild(track);
+  chart.appendChild(row);
+});
+
+// 월별 거래금액 추이 — 선 + 달마다 점, 점에 마우스를 올리면 크로스헤어와 툴팁이 뜬다
+const monthly = [
+  ["2024-01", 47840867], ["2024-02", 45370905], ["2024-03", 54130881],
+  ["2024-04", 45027918], ["2024-05", 51258732], ["2024-06", 47370405],
+  ["2024-07", 50119647], ["2024-08", 46415176], ["2024-09", 45723535],
+  ["2024-10", 43194441], ["2024-11", 50109649], ["2024-12", 49663003],
+];
+
+const svgW = 720, svgH = 320;
+const padding = { top: 20, right: 20, bottom: 50, left: 70 };
+const plotW = svgW - padding.left - padding.right;
+const plotH = svgH - padding.top - padding.bottom;
+
+const values = monthly.map(([, v]) => v);
+const minV = Math.min(...values), maxV = Math.max(...values);
+// 위아래로 10% 여백을 둬야 최댓값 점이 그래프 맨 위 테두리에 붙어 잘리지 않는다
+const yMin = minV - (maxV - minV) * 0.15;
+const yMax = maxV + (maxV - minV) * 0.15;
+
+const xOf = (i) => padding.left + (i / (monthly.length - 1)) * plotW;
+const yOf = (v) => padding.top + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+
+const svgNS = "http://www.w3.org/2000/svg";
+const svg = document.createElementNS(svgNS, "svg");
+svg.setAttribute("width", svgW);
+svg.setAttribute("height", svgH);
+svg.setAttribute("id", "line-chart");
+document.getElementById("line-chart-wrap").appendChild(svg);
+
+// 가로 눈금선 — 값을 대략적으로 가늠할 수 있는 보조선 (recessive, 진하지 않게)
+const gridLines = 4;
+for (let i = 0; i <= gridLines; i++) {
+  const v = yMin + (yMax - yMin) * (i / gridLines);
+  const y = yOf(v);
+  const gridLine = document.createElementNS(svgNS, "line");
+  gridLine.setAttribute("x1", padding.left);
+  gridLine.setAttribute("x2", svgW - padding.right);
+  gridLine.setAttribute("y1", y);
+  gridLine.setAttribute("y2", y);
+  gridLine.setAttribute("stroke", "#e1e0d9");
+  svg.appendChild(gridLine);
+
+  const label = document.createElementNS(svgNS, "text");
+  label.setAttribute("x", padding.left - 10);
+  label.setAttribute("y", y + 4);
+  label.setAttribute("text-anchor", "end");
+  label.setAttribute("font-size", "11");
+  label.setAttribute("fill", "#898781");
+  label.textContent = Math.round(v / 1e6) + "M";
+  svg.appendChild(label);
+}
+
+// 선(line)
+const points = monthly.map(([m, v], i) => `${xOf(i)},${yOf(v)}`).join(" ");
+const polyline = document.createElementNS(svgNS, "polyline");
+polyline.setAttribute("points", points);
+polyline.setAttribute("fill", "none");
+polyline.setAttribute("stroke", "#2a78d6");  // 단일 계열이라 팔레트 기본 블루 하나만 사용
+polyline.setAttribute("stroke-width", "2");
+svg.appendChild(polyline);
+
+// 크로스헤어(세로선) — 평소엔 숨겨두고 hover 시에만 보이게
+const crosshair = document.createElementNS(svgNS, "line");
+crosshair.setAttribute("class", "crosshair");
+crosshair.setAttribute("y1", padding.top);
+crosshair.setAttribute("y2", padding.top + plotH);
+svg.appendChild(crosshair);
+
+monthly.forEach(([m, v], i) => {
+  const cx = xOf(i), cy = yOf(v);
+
+  // x축에 월 라벨 표시
+  const xLabel = document.createElementNS(svgNS, "text");
+  xLabel.setAttribute("x", cx);
+  xLabel.setAttribute("y", svgH - padding.bottom + 20);
+  xLabel.setAttribute("text-anchor", "middle");
+  xLabel.setAttribute("font-size", "11");
+  xLabel.setAttribute("fill", "#898781");
+  xLabel.textContent = m;
+  svg.appendChild(xLabel);
+
+  // 실제 보이는 점 (달마다 점 찍기)
+  const dot = document.createElementNS(svgNS, "circle");
+  dot.setAttribute("cx", cx);
+  dot.setAttribute("cy", cy);
+  dot.setAttribute("r", 4);
+  dot.setAttribute("fill", "#2a78d6");
+  dot.setAttribute("stroke", "#fcfcfb");
+  dot.setAttribute("stroke-width", "1.5");
+  svg.appendChild(dot);
+
+  // 점보다 넉넉하게 잡은 hit target — 마우스가 점에 정확히 있지 않아도 반응하게 함
+  const hit = document.createElementNS(svgNS, "circle");
+  hit.setAttribute("class", "hit-target");
+  hit.setAttribute("cx", cx);
+  hit.setAttribute("cy", cy);
+  hit.setAttribute("r", 12);
+  hit.addEventListener("mouseenter", (e) => {
+    crosshair.setAttribute("x1", cx);
+    crosshair.setAttribute("x2", cx);
+    crosshair.style.opacity = "1";
+    tooltip.style.opacity = "1";
+    tooltip.textContent = `${m}: ${v.toLocaleString()}원`;
+  });
+  hit.addEventListener("mousemove", (e) => {
+    tooltip.style.left = (e.clientX + 14) + "px";
+    tooltip.style.top = (e.clientY - 10) + "px";
+  });
+  hit.addEventListener("mouseleave", () => {
+    crosshair.style.opacity = "0";
+    tooltip.style.opacity = "0";
+  });
+  svg.appendChild(hit);
+});
+</script>
+</body>
+</html>
